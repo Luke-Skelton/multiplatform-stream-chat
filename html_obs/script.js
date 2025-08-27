@@ -1,5 +1,5 @@
 // --- CONFIGURATION ---
-const SB_WEBSOCKET_URL = 'ws://127.0.0.1:9090/';
+const SB_WEBSOCKET_URL = 'ws://127.0.0.1:8080/';
 
 // --- MAIN LOGIC ---
 window.addEventListener('load', () => {
