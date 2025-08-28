@@ -1,5 +1,5 @@
 // --- CONFIGURATION ---
-const SB_WEBSOCKET_URL = 'ws://127.0.0.1:8080/';
+const SB_WEBSOCKET_URL = 'ws://127.0.0.1:8081/';
 
 // --- MAIN LOGIC ---
 window.addEventListener('load', () => {
@@ -14,6 +14,7 @@ function connectws() {
     };
 
     ws.onmessage = (event) => {
+        console.log('Raw message:', event.data); // Add this for debugging
         const eventData = JSON.parse(event.data);
         
         // Listen for our specific custom event from the C# code
