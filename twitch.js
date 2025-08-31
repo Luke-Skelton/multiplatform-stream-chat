@@ -6,6 +6,9 @@ import { RefreshingAuthProvider } from '@twurple/auth';
 import { ChatClient } from '@twurple/chat';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { EventSubHttpListener } from '@twurple/eventsub-http';
+import { ApiClient } from '@twurple/api';
+import { StaticAuthProvider } from '@twurple/auth';
 
 // --- Token Management ---
 const tokenPath = path.resolve(process.cwd(), 'tokens.json');
@@ -83,5 +86,34 @@ export async function connectTwitch(clientId, clientSecret, channel, onMessage) 
 
   // Connect to Twitch chat.
   await chatClient.connect();
+}
+
+// --- EventSub Setup Function ---
+export async function setupTwitchEventSub(clientId, accessToken, channelId, onMessage) {
+    const apiClient = new ApiClient({
+        authProvider: new StaticAuthProvider(clientId, accessToken)
+    });
+
+    const listener = new EventSubHttpListener({
+        apiClient,
+        port: 8081, // must be public HTTPS for Twitch
+    });
+
+    await listener.listen();
+
+    // Channel Point Redemptions
+    listener.onChannelRedemptionAdd(channelId, event => {
+        onMessage('Twitch', event.userName, `redeemed: ${event.rewardTitle}`);
+    });
+
+    // Follows
+    listener.onChannelFollow(channelId, event => {
+        onMessage('Twitch', event.userName, `just followed!`);
+    });
+
+    // Cheers (Bits)
+    listener.onChannelCheer(channelId, event => {
+        onMessage('Twitch', event.userName, `cheered ${event.bits} bits!`);
+    });
 }
 

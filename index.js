@@ -1,75 +1,99 @@
-// index.js
-// This is the main entry point of our application. It's responsible for
-// loading the configuration, connecting to the different services,
-// and handling the incoming messages in a unified way.
-
 import dotenv from 'dotenv';
-
-// Import the settings from our new config file
-import { settings } from './config.js';
-
+import { WebSocketServer } from 'ws';
 import { connectTwitch } from './twitch.js';
 import { connectYouTube } from './youtube.js';
 import { connectTikTok } from './tiktok.js';
+import { settings } from './config.js';
 
-// Load environment variables from the .env file
 dotenv.config();
-
-/**
- * A centralized handler for all incoming messages from all platforms.
- * @param {string} platform - The name of the platform (e.g., 'Twitch', 'YouTube').
- * @param {string} user - The username of the person who sent the message.
- * @param {string} message - The content of the message.
- * @param {boolean} [isAction=false] - Optional: Whether the message is an "action" (e.g., /me).
- */
-function onMessageHandler(platform, user, message, isAction = false) {
-  const time = new Date().toLocaleTimeString();
-  if (isAction) {
-    console.log(`[${time}] [${platform}] * ${user} ${message}`);
-  } else {
-    console.log(`[${time}] [${platform}] ${user}: ${message}`);
-  }
-}
-
-// --- Main Application ---
 console.log('--- Multi-Stream Chat Aggregator Starting ---');
 
-// --- Connect to Services based on config ---
+// --- WebSocket Server Setup ---
+const wss = new WebSocketServer({ port: 8080 });
+let connectedClients = new Set();
 
-// Connect to Twitch only if it's enabled in config.js
+wss.on('connection', (ws) => {
+    console.log('[SERVER] A new client has connected.');
+    connectedClients.add(ws);
+    
+    ws.on('close', () => {
+        console.log('[SERVER] A client has disconnected.');
+        connectedClients.delete(ws);
+    });
+    
+    ws.on('error', (error) => {
+        console.error('[SERVER] WebSocket error:', error);
+    });
+});
+
+console.log(`[SERVER] WebSocket server started on port 8080. Waiting for connections...`);
+
+
+/**
+ * The central message handler.
+ * Instead of logging to the console, it now broadcasts messages to all connected web clients.
+ * @param {string} platform - The platform the message is from (e.g., 'Twitch').
+ * @param {string} user - The username of the chatter.
+ * @param {string} message - The chat message content.
+ */
+function onMessageHandler(platform, user, message) {
+    // Also log to the console for backend debugging
+    console.log(`[${platform.toUpperCase()}] ${user}: ${message}`);
+
+    const messageData = {
+        platform,
+        user,
+        message,
+        timestamp: new Date().toISOString()
+    };
+
+    const jsonData = JSON.stringify(messageData);
+
+    // Broadcast the message to every connected client
+    connectedClients.forEach(client => {
+        if (client.readyState === 1) { // 1 means OPEN
+            client.send(jsonData);
+        }
+    });
+}
+
+/**
+ * Broadcasts a system message to all connected clients.
+ * @param {string} message - The message content to broadcast.
+ */
+function broadcastSystemMessage(message) {
+    const messageData = {
+        platform: 'System',
+        user: '[SYSTEM]',
+        message,
+        timestamp: new Date().toISOString()
+    };
+    const jsonData = JSON.stringify(messageData);
+    connectedClients.forEach(client => {
+        if (client.readyState === 1) {
+            client.send(jsonData);
+        }
+    });
+}
+
+// --- Platform Connections ---
+// Connect to each platform if it's enabled in the config.
+
 if (settings.enableTwitch) {
-  if (process.env.TWITCH_CLIENT_ID && process.env.TWITCH_CLIENT_SECRET && process.env.TWITCH_CHANNEL) {
-    connectTwitch(
-      process.env.TWITCH_CLIENT_ID,
-      process.env.TWITCH_CLIENT_SECRET,
-      process.env.TWITCH_CHANNEL,
-      onMessageHandler
-    );
-  } else {
-    console.warn('[TWITCH] Missing configuration in .env file. Skipping connection.');
-  }
+    const { TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, TWITCH_CHANNEL } = process.env;
+    connectTwitch(TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, TWITCH_CHANNEL, onMessageHandler);
 }
 
-// Connect to YouTube only if it's enabled in config.js
 if (settings.enableYouTube) {
-  // Check for the new API Key
-  if (process.env.YOUTUBE_API_KEY && process.env.YOUTUBE_CHANNEL_ID) {
-    connectYouTube(
-      process.env.YOUTUBE_API_KEY,
-      process.env.YOUTUBE_CHANNEL_ID,
-      onMessageHandler
-    );
-  } else {
-    console.warn('[YOUTUBE] Missing YOUTUBE_API_KEY or YOUTUBE_CHANNEL_ID in .env file. Skipping connection.');
-  }
+    const { YOUTUBE_CHANNEL_ID, YOUTUBE_API_KEY } = process.env;
+    connectYouTube(YOUTUBE_CHANNEL_ID, YOUTUBE_API_KEY, onMessageHandler);
 }
 
-// Connect to TikTok only if it's enabled in config.js
 if (settings.enableTikTok) {
-  if (process.env.TIKTOK_USERNAME) {
-    connectTikTok(process.env.TIKTOK_USERNAME, onMessageHandler);
-  } else {
-    console.warn('[TIKTOK] Missing TIKTOK_USERNAME in .env file. Skipping connection.');
-  }
+    const { TIKTOK_USERNAME } = process.env;
+    connectTikTok(TIKTOK_USERNAME, onMessageHandler);
 }
+
+// Example usage of broadcasting a system message
+broadcastSystemMessage('Server started and ready for connections.');
 

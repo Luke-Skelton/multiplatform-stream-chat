@@ -5,6 +5,8 @@ import { WebcastPushConnection } from 'tiktok-live-connector';
 
 export function connectTikTok(username, onMessage) {
   try {
+    username = username.replace(/^@/, '');
+
     // Create a new connection instance
     const tiktokLiveConnection = new WebcastPushConnection(username);
 

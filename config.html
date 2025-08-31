@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Stream Chat Configuration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen">
+    <div class="bg-gray-800 p-8 rounded shadow-lg w-full max-w-md">
+        <h2 class="text-xl font-bold mb-4 text-center">Configure Your Stream Chat</h2>
+        <form id="configForm" class="space-y-4">
+            <div>
+                <label class="block mb-1">Twitch Client ID</label>
+                <input type="text" name="TWITCH_CLIENT_ID" class="w-full p-2 rounded bg-gray-700 text-white" required>
+            </div>
+            <div>
+                <label class="block mb-1">Twitch Client Secret</label>
+                <input type="text" name="TWITCH_CLIENT_SECRET" class="w-full p-2 rounded bg-gray-700 text-white" required>
+            </div>
+            <div>
+                <label class="block mb-1">Twitch Channel</label>
+                <input type="text" name="TWITCH_CHANNEL" class="w-full p-2 rounded bg-gray-700 text-white" required>
+            </div>
+            <div>
+                <label class="block mb-1">YouTube API Key</label>
+                <input type="text" name="YOUTUBE_API_KEY" class="w-full p-2 rounded bg-gray-700 text-white" required>
+            </div>
+            <div>
+                <label class="block mb-1">YouTube Channel ID</label>
+                <input type="text" name="YOUTUBE_CHANNEL_ID" class="w-full p-2 rounded bg-gray-700 text-white" required>
+            </div>
+            <div>
+                <label class="block mb-1">TikTok Username</label>
+                <input type="text" name="TIKTOK_USERNAME" class="w-full p-2 rounded bg-gray-700 text-white" required>
+            </div>
+            <div class="flex gap-2">
+                <label><input type="checkbox" name="enableTwitch" checked> Twitch</label>
+                <label><input type="checkbox" name="enableYouTube" checked> YouTube</label>
+                <label><input type="checkbox" name="enableTikTok"> TikTok</label>
+            </div>
+            <button type="submit" class="w-full bg-blue-600 py-2 rounded font-bold">Save & Apply</button>
+        </form>
+        <div id="statusMsg" class="mt-4 text-center text-green-400"></div>
+    </div>
+    <script>
+        document.getElementById('configForm').onsubmit = async function(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const config = {};
+            formData.forEach((v, k) => config[k] = v);
+            config.enableTwitch = !!formData.get('enableTwitch');
+            config.enableYouTube = !!formData.get('enableYouTube');
+            config.enableTikTok = !!formData.get('enableTikTok');
+            // Send config to backend
+            const res = await fetch('/api/save-config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(config)
+            });
+            document.getElementById('statusMsg').textContent = res.ok ? "Configuration saved!" : "Error saving configuration.";
+        };
+    </script>
+</body>
+</html>

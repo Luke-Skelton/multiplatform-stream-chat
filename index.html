@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Stream Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Simple scrollbar styling for a modern look */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937; /* gray-800 */
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563; /* gray-600 */
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280; /* gray-500 */
+        }
+        .message-container {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="h-full bg-gray-900 text-white font-sans flex flex-col p-4">
+
+    <header class="mb-4">
+        <h1 class="text-2xl font-bold text-center text-gray-200">Multi-Platform Stream Chat</h1>
+        <div id="status-indicator" class="flex items-center justify-center mt-2 text-sm">
+            <div class="h-3 w-3 bg-red-500 rounded-full mr-2 animate-pulse"></div>
+            <span class="text-gray-400">Connecting...</span>
+        </div>
+        <div class="flex justify-center mt-2">
+            <a href="config.html" class="px-3 py-1 bg-blue-700 rounded text-white font-bold">Configure</a>
+        </div>
+    </header>
+
+    <div class="flex justify-center gap-2 mb-2">
+        <button onclick="filterPlatform('all')" class="px-2 py-1 bg-gray-700 rounded">All</button>
+        <button onclick="filterPlatform('twitch')" class="px-2 py-1 bg-purple-600 rounded">Twitch</button>
+        <button onclick="filterPlatform('youtube')" class="px-2 py-1 bg-red-600 rounded">YouTube</button>
+        <button onclick="filterPlatform('tiktok')" class="px-2 py-1 bg-cyan-500 rounded">TikTok</button>
+    </div>
+
+    <main id="chat-box" class="flex-1 overflow-y-auto bg-gray-800 rounded-lg p-4 space-y-4 shadow-inner">
+        <!-- Chat messages will be dynamically inserted here -->
+         <div class="text-center text-gray-500 pt-8">Waiting for chat messages...</div>
+    </main>
+
+    <script>
+        const chatBox = document.getElementById('chat-box');
+        const statusIndicator = document.getElementById('status-indicator');
+        const statusDot = statusIndicator.querySelector('div');
+        const statusText = statusIndicator.querySelector('span');
+        let initialMessageCleared = false;
+        let currentFilter = 'all';
+
+        function connectWebSocket() {
+            // Connect to the local backend server
+            const ws = new WebSocket('ws://localhost:8080');
+
+            ws.onopen = () => {
+                console.log('Successfully connected to the backend WebSocket server.');
+                statusDot.classList.remove('bg-red-500', 'animate-pulse');
+                statusDot.classList.add('bg-green-500');
+                statusText.textContent = 'Connected';
+            };
+
+            ws.onmessage = (event) => {
+                const messageData = JSON.parse(event.data);
+                
+                // Clear the initial "Waiting..." message
+                if (!initialMessageCleared) {
+                    chatBox.innerHTML = '';
+                    initialMessageCleared = true;
+                }
+                
+                addMessageToChat(messageData);
+            };
+
+            ws.onclose = () => {
+                console.log('Disconnected from WebSocket server. Attempting to reconnect in 3 seconds...');
+                statusDot.classList.remove('bg-green-500');
+                statusDot.classList.add('bg-red-500', 'animate-pulse');
+                // Provide a more helpful message to the user, pointing to the likely problem.
+                statusText.textContent = 'Connection failed. Is the server running? Retrying...';
+                // Simple auto-reconnect logic
+                setTimeout(connectWebSocket, 3000);
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                ws.close(); // This will trigger the onclose event and the reconnect logic
+            };
+        }
+
+        function getPlatformBadge(platform) {
+            const badges = {
+                twitch: { bg: 'bg-purple-600', text: 'Twitch' },
+                youtube: { bg: 'bg-red-600', text: 'YouTube' },
+                tiktok: { bg: 'bg-cyan-500', text: 'TikTok' },
+                default: { bg: 'bg-gray-600', text: 'System' }
+            };
+            return badges[platform.toLowerCase()] || badges.default;
+        }
+
+        function sanitize(str) {
+            return str.replace(/[&<>"']/g, function(m) {
+                return ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                })[m];
+            });
+        }
+        function addMessageToChat({ platform, user, message, timestamp }) {
+            messages.push({ platform, user, message, timestamp });
+            renderMessages();
+        }
+
+        function renderMessages() {
+            chatBox.innerHTML = '';
+            messages.filter(msg => currentFilter === 'all' || msg.platform.toLowerCase() === currentFilter)
+                .forEach(msg => {
+                    const badge = getPlatformBadge(msg.platform);
+
+                    const messageElement = document.createElement('div');
+                    messageElement.classList.add('message-container', 'flex', 'items-start', 'gap-3');
+                    
+                    messageElement.innerHTML = `
+                        <div class="flex-shrink-0">
+                            <span class="px-2.5 py-1 text-xs font-semibold tracking-wider text-white ${badge.bg} rounded-full">${badge.text}</span>
+                        </div>
+                        <div>
+                            <p class="font-bold text-gray-300">${sanitize(msg.user)}:</p>
+                            <p class="text-gray-100 break-words">${sanitize(msg.message)}</p>
+                            <p class="text-xs text-gray-400">
+                                ${new Date(msg.timestamp).toLocaleTimeString()}
+                            </p>
+                        </div>
+                    `;
+
+                    chatBox.appendChild(messageElement);
+                });
+            // Auto-scroll to the bottom
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function filterPlatform(platform) {
+            currentFilter = platform;
+            renderMessages();
+        }
+
+        // Initial connection attempt
+        connectWebSocket();
+    </script>
+</body>
+</html>
+

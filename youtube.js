@@ -8,6 +8,7 @@ const youtube = google.youtube('v3');
 let liveChatId = null;
 let nextPageToken = null;
 let chatPollingInterval = null;
+let chatPollingTimeout = null;
 
 /**
  * A helper function to find the active live stream for a given channel.
@@ -67,14 +68,15 @@ async function pollChatMessages(apiKey, onMessage) {
             key: apiKey,
         });
 
-        const newMessages = response.data.items;
-        if (newMessages.length > 0) {
-            for (const message of newMessages) {
-                onMessage(
-                    'YouTube',
-                    message.authorDetails.displayName,
-                    message.snippet.displayMessage
-                );
+        const messages = response.data.items;
+        for (const msg of messages) {
+            const type = msg.snippet.type;
+            if (type === 'superChatEvent') {
+                onMessage('YouTube', msg.authorDetails.displayName, `SuperChat: ${msg.snippet.superChatDetails.amountDisplayString} - ${msg.snippet.superChatDetails.userComment}`);
+            } else if (type === 'membershipItem') {
+                onMessage('YouTube', msg.authorDetails.displayName, `became a member!`);
+            } else if (type === 'textMessageEvent') {
+                onMessage('YouTube', msg.authorDetails.displayName, msg.snippet.displayMessage);
             }
         }
 
@@ -84,7 +86,8 @@ async function pollChatMessages(apiKey, onMessage) {
 
         // Clear previous interval and set a new one
         if (chatPollingInterval) clearInterval(chatPollingInterval);
-        chatPollingInterval = setInterval(() => pollChatMessages(apiKey, onMessage), suggestedInterval);
+        if (chatPollingTimeout) clearTimeout(chatPollingTimeout);
+        chatPollingTimeout = setTimeout(() => pollChatMessages(apiKey, onMessage), suggestedInterval);
 
     } catch (err) {
         console.error('[YOUTUBE] Error polling chat messages:', err.message);
