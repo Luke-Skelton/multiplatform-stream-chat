@@ -1,0 +1,29 @@
+{
+  "name": "multi-stream-chat",
+  "version": "1.0.0",
+  "description": "A unified chat client for Twitch, YouTube, and TikTok.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "twitch",
+    "youtube",
+    "tiktok",
+    "chat",
+    "stream"
+  ],
+  "author": "Luke Skelton",
+  "license": "ISC",
+  "dependencies": {
+    "@twurple/auth": "^7.2.0",
+    "@twurple/chat": "^7.2.0",
+    "@twurple/eventsub-http": "^7.4.0",
+    "dotenv": "^16.4.5",
+    "googleapis": "^140.0.1",
+    "tiktok-live-connector": "^1.0.6",
+    "winston": "^3.17.0",
+    "ws": "^8.17.1"
+  }
+}
