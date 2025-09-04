@@ -87,6 +87,7 @@ if (settings.enableTwitch) {
 if (settings.enableYouTube) {
     const { YOUTUBE_CHANNEL_ID, YOUTUBE_API_KEY } = process.env;
     connectYouTube(YOUTUBE_CHANNEL_ID, YOUTUBE_API_KEY, onMessageHandler);
+    console.log('Loaded YouTube API Key:', process.env.YOUTUBE_API_KEY);
 }
 
 if (settings.enableTikTok) {

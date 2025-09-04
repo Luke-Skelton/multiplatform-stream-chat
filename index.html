@@ -55,6 +55,7 @@
     </main>
 
     <script>
+        const messages = [];
         const chatBox = document.getElementById('chat-box');
         const statusIndicator = document.getElementById('status-indicator');
         const statusDot = statusIndicator.querySelector('div');
@@ -122,8 +123,8 @@
                 })[m];
             });
         }
-        function addMessageToChat({ platform, user, message, timestamp }) {
-            messages.push({ platform, user, message, timestamp });
+        function addMessageToChat(data) {
+            messages.push(data);
             renderMessages();
         }
 
