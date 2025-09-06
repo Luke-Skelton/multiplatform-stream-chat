@@ -86,7 +86,7 @@ if (settings.enableTwitch) {
 
 if (settings.enableYouTube) {
     const { YOUTUBE_CHANNEL_ID, YOUTUBE_API_KEY } = process.env;
-    connectYouTube(YOUTUBE_CHANNEL_ID, YOUTUBE_API_KEY, onMessageHandler);
+    connectYouTube(YOUTUBE_API_KEY, YOUTUBE_CHANNEL_ID, onMessageHandler);
     console.log('Loaded YouTube API Key:', process.env.YOUTUBE_API_KEY);
 }
 

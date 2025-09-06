@@ -2,9 +2,8 @@
 // Handles the connection to YouTube Live chat using the OFFICIAL YouTube Data API.
 // This method is more reliable than scraping libraries.
 
-import { google } from 'googleapis';
+import fetch from 'node-fetch';
 
-const youtube = google.youtube('v3');
 let liveChatId = null;
 let nextPageToken = null;
 let chatPollingInterval = null;
@@ -19,37 +18,43 @@ let chatPollingTimeout = null;
 async function getLiveChatId(apiKey, channelId) {
     try {
         // Step 1: Find the active live broadcast Video ID.
-        const searchResponse = await youtube.search.list({
-            part: 'snippet',
-            channelId: channelId,
-            eventType: 'live',
-            type: 'video',
-            key: apiKey,
-        });
+        const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}&eventType=live&type=video&key=${apiKey}`;
+        const searchResponse = await fetch(searchUrl);
+        const searchData = await searchResponse.json();
 
-        const liveBroadcast = searchResponse.data.items[0];
-        if (!liveBroadcast) {
+        if (!searchData.items || searchData.items.length === 0) {
             console.log(`[YOUTUBE] No active live stream found for channel ${channelId}. Retrying...`);
             return null;
         }
-        const videoId = liveBroadcast.id.videoId;
+
+        const liveBroadcast = searchData.items[0];
+        const videoId = liveBroadcast.id?.videoId;
+        if (!videoId) {
+            console.error(`[YOUTUBE] Found a live broadcast but no videoId. Raw item:`, liveBroadcast);
+            return null;
+        }
 
         // Step 2: Use the Video ID to get the Live Chat ID.
-        const videoResponse = await youtube.videos.list({
-            part: 'liveStreamingDetails',
-            id: videoId,
-            key: apiKey,
-        });
+        const videoUrl = `https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails&id=${videoId}&key=${apiKey}`;
+        const videoResponse = await fetch(videoUrl);
+        const videoData = await videoResponse.json();
 
-        const liveChatId = videoResponse.data.items[0]?.liveStreamingDetails?.activeLiveChatId;
+        if (!videoData.items || videoData.items.length === 0) {
+            console.error(`[YOUTUBE] Video response missing items. Raw response:`, videoData);
+            return null;
+        }
+
+        const liveChatId = videoData.items[0]?.liveStreamingDetails?.activeLiveChatId;
         if (liveChatId) {
             console.log(`[YOUTUBE] Found live chat! ID: ${liveChatId}`);
             return liveChatId;
+        } else {
+            console.error(`[YOUTUBE] No activeLiveChatId found. Raw item:`, videoData.items[0]);
         }
         return null;
 
     } catch (err) {
-        console.error('[YOUTUBE] Error fetching live chat ID:', err.message);
+        console.error('[YOUTUBE] Error fetching live chat ID:', err.message, err);
         return null;
     }
 }
@@ -61,14 +66,11 @@ async function getLiveChatId(apiKey, channelId) {
  */
 async function pollChatMessages(apiKey, onMessage) {
     try {
-        const response = await youtube.liveChatMessages.list({
-            part: 'snippet,authorDetails',
-            liveChatId: liveChatId,
-            pageToken: nextPageToken,
-            key: apiKey,
-        });
+        const chatUrl = `https://www.googleapis.com/youtube/v3/liveChat/messages?part=snippet,authorDetails&liveChatId=${liveChatId}&key=${apiKey}${nextPageToken ? `&pageToken=${nextPageToken}` : ''}`;
+        const response = await fetch(chatUrl);
+        const data = await response.json();
 
-        const messages = response.data.items;
+        const messages = data.items || [];
         for (const msg of messages) {
             const type = msg.snippet.type;
             if (type === 'superChatEvent') {
@@ -80,17 +82,14 @@ async function pollChatMessages(apiKey, onMessage) {
             }
         }
 
-        nextPageToken = response.data.nextPageToken;
-        // Use the polling interval suggested by the API, or default to 5 seconds.
-        const suggestedInterval = response.data.pollingIntervalMillis || 5000;
+        nextPageToken = data.nextPageToken;
+        const suggestedInterval = data.pollingIntervalMillis || 5000;
 
-        // Clear previous interval and set a new one
-        if (chatPollingInterval) clearInterval(chatPollingInterval);
         if (chatPollingTimeout) clearTimeout(chatPollingTimeout);
         chatPollingTimeout = setTimeout(() => pollChatMessages(apiKey, onMessage), suggestedInterval);
 
     } catch (err) {
-        console.error('[YOUTUBE] Error polling chat messages:', err.message);
+        console.error('[YOUTUBE] Error polling chat messages:', err.message, err);
     }
 }
 
