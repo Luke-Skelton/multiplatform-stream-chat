@@ -2,12 +2,19 @@ import express from 'express';
 import fs from 'fs/promises';
 import path from 'path';
 
+const __dirname = path.resolve();
+
 const app = express();
+
 app.use(express.json());
+app.use(express.static(path.join(__dirname, '.')));
+
+app.get('/config.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'config.html'));
+});
 
 app.post('/api/save-config', async (req, res) => {
     const config = req.body;
-    try {
         // Save .env
         let envContent = 
             `TWITCH_CLIENT_ID="${config.TWITCH_CLIENT_ID}"\n` +
@@ -25,10 +32,7 @@ app.post('/api/save-config', async (req, res) => {
             `  enableTikTok: ${config.enableTikTok}\n` +
             `};\n`;
         await fs.writeFile(path.resolve(process.cwd(), 'config.js'), jsContent, 'utf-8');
-        res.sendStatus(200);
-    } catch (err) {
-        res.status(500).send('Failed to save config');
-    }
+    res.sendStatus(200);
 });
 
 app.listen(3000, () => console.log('Config server running on http://localhost:3000'));

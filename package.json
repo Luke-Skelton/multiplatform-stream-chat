@@ -21,6 +21,7 @@
     "@twurple/chat": "^7.2.0",
     "@twurple/eventsub-http": "^7.4.0",
     "dotenv": "^16.4.5",
+    "express": "^5.1.0",
     "googleapis": "^140.0.1",
     "node-fetch": "^3.3.2",
     "tiktok-live-connector": "^1.0.6",
